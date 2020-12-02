@@ -9,6 +9,10 @@ import { CustomerComponent } from './customer.component';
 import { CustomerCreateUpdateModule } from './customer-create-update/customer-create-update.module';
 import { FurySharedModule } from '../../../../@fury/fury-shared.module';
 import { CustomerService } from './shared/customer.service';
+import { StoreModule } from '@ngrx/store';
+import { EffectsModule } from '@ngrx/effects';
+import { reducer } from '../../../store/reducers/customer.reducer';
+import { CustomerEffects } from 'src/app/store/effects/customer.effects';
 
 @NgModule({
   imports: [
@@ -21,7 +25,11 @@ import { CustomerService } from './shared/customer.service';
     // Core
     ListModule,
     CustomerCreateUpdateModule,
-    BreadcrumbsModule
+    BreadcrumbsModule,
+    StoreModule.forRoot({
+      customers: reducer
+    }),
+    EffectsModule.forRoot([CustomerEffects])
   ],
   declarations: [CustomerComponent],
   exports: [CustomerComponent],

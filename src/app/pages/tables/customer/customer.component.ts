@@ -10,7 +10,11 @@ import { CustomerCreateUpdateComponent } from './customer-create-update/customer
 import { Customer } from './shared/customer.model';
 import { fadeInRightAnimation } from '../../../../@fury/animations/fade-in-right.animation';
 import { fadeInUpAnimation } from '../../../../@fury/animations/fade-in-up.animation';
-import { CustomerService } from './shared/customer.service';
+import { Store } from '@ngrx/store';
+import { AppState } from '../../../store/app.state';
+import * as customerActions from 'src/app/store/actions/customer.actions';
+import * as customerReducer from '../../../store/reducers/customer.reducer';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
 @Component({
   selector: 'fury-customer',
@@ -45,23 +49,39 @@ export class CustomerComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild(MatSort, { static: true }) sort: MatSort;
 
   constructor(private dialog: MatDialog,
-              private customerData: CustomerService) {
+              private store: Store<AppState>,
+              private snackbar: MatSnackBar) {
   }
 
   get visibleColumns() {
     return this.columns.filter(column => column.visible).map(column => column.property);
   }
 
-  /**
-   * Example on how to get data and pass it to the table - usually you would want a dedicated service with a HTTP request for this
-   * We are simulating this request here.
-   */
-  getData() {
-    return this.customerData.findAll();
-  }
-
   ngOnInit() {
-    this.getData().subscribe(customers => {
+
+    this.store.dispatch(new customerActions.GetAllCustomers());
+
+    this.store.select(customerReducer.getCustomersError).subscribe((error) => this.showSnack(error, "Error Obteniendo la lista de clientes"));
+    this.store.select(customerReducer.isDeleted).subscribe((done) => {
+      this.showSnack(done, 'El cliente fue eliminado con éxito!!!');
+    });
+    this.store.select(customerReducer.getDeleteError).subscribe((error) => {
+      this.showSnack(error, 'Error Eliminando al cliente');
+    });
+    this.store.select(customerReducer.isUpdated).subscribe((done) => {
+      this.showSnack(done, 'El cliente fue modificado con éxito!!!');
+    });
+    this.store.select(customerReducer.getUpdateError).subscribe((error) => {
+      this.showSnack(error, 'Error modificando al cliente');
+    });
+    this.store.select(customerReducer.isCreated).subscribe((done) => {
+      this.showSnack(done, 'El cliente fue creado con éxito!!!');
+    });
+    this.store.select(customerReducer.getCreateError).subscribe((error) => {
+      this.showSnack(error, 'Error creando el nuevo cliente');
+    });
+
+    this.store.select(customerReducer.getAllCustomers).subscribe(customers => {
       this.subject$.next(customers);
     });
 
@@ -75,6 +95,15 @@ export class CustomerComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  showSnack(done, msg){
+    if (done) {
+      this.snackbar.open(msg, 'CLOSE', {
+        duration: 3000,
+        horizontalPosition: 'right'
+      });
+    }
+  }
+
   ngAfterViewInit() {
     this.dataSource.paginator = this.paginator;
     this.dataSource.sort = this.sort;
@@ -83,17 +112,10 @@ export class CustomerComponent implements OnInit, AfterViewInit, OnDestroy {
   createCustomer() {
     this.dialog.open(CustomerCreateUpdateComponent).afterClosed().subscribe((customer: Customer) => {
       /**
-       * Customer is the updated customer (if the user pressed Save - otherwise it's null)
+       * Customer is the updated customer (if the Customer pressed Save - otherwise it's null)
        */
       if (customer) {
-        this.customerData.insert(customer).subscribe(newCustomer => {
-          if (newCustomer) {
-            this.customers.unshift(new Customer(newCustomer));
-            this.subject$.next(this.customers);
-          } else {
-            alert('pailas');
-          }
-        })
+        this.store.dispatch(new customerActions.AddCustomer(customer));
       }
     });
   }
@@ -103,21 +125,10 @@ export class CustomerComponent implements OnInit, AfterViewInit, OnDestroy {
       data: customer
     }).afterClosed().subscribe((customer) => {
       /**
-       * Customer is the updated customer (if the user pressed Save - otherwise it's null)
+       * Customer is the updated customer (if the Customer pressed Save - otherwise it's null)
        */
       if (customer) {
-        this.customerData.update(customer).subscribe(newCustomer => {
-          if (newCustomer) {
-            const index = this.customers.findIndex((existingCustomer) => existingCustomer.id === newCustomer.id);
-            this.customers[index] = new Customer(newCustomer);
-            this.subject$.next(this.customers);
-          } else {
-            alert('pailas');
-          }
-        })
-        const index = this.customers.findIndex((existingCustomer) => existingCustomer.id === customer.id);
-        this.customers[index] = new Customer(customer);
-        this.subject$.next(this.customers);
+        this.store.dispatch(new customerActions.UpdateCustomer(customer));
       }
     });
   }
@@ -127,8 +138,7 @@ export class CustomerComponent implements OnInit, AfterViewInit, OnDestroy {
      * Here we are updating our local array.
      * You would probably make an HTTP request here.
      */
-    this.customers.splice(this.customers.findIndex((existingCustomer) => existingCustomer.id === customer.id), 1);
-    this.subject$.next(this.customers);
+    this.store.dispatch(new customerActions.RemoveCustomer(customer.id));
   }
 
   onFilterChange(value) {

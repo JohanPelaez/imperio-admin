@@ -45,7 +45,6 @@ export class CustomerService {
     let headers = new HttpHeaders();
     
     headers = headers.set('Content-Type', 'text/plain; charset=utf-8');
-    console.log(data);
 
     return this.http.post<Customer>(this.URL, data, {headers});
   }
